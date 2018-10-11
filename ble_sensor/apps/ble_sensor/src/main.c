@@ -36,17 +36,17 @@
 /* Global buffer to store temperature blob */
 int16_t g_temp[10]={0};
 
-#define GEN_TASK_PRIO       3     
-#define GEN_TASK_STACK_SZ   512
+#define TEMP_MEAS_TASK_PRIO       3     
+#define TEMP_MEAS_TASK_STACK_SZ   512
 
-static os_stack_t gen_task_stack[GEN_TASK_STACK_SZ];
-static struct os_task gen_task_str;
+static os_stack_t temp_meas_task_stack[TEMP_MEAS_TASK_STACK_SZ];
+static struct os_task temp_meas_task_str;
 
 /* Callback function for application task event */
 static void my_ev_cb(struct os_event *);
 
 /* Initialize the event with the callback function */
-static struct os_event gen_task_ev = {
+static struct os_event temp_meas_task_ev = {
     .ev_cb = my_ev_cb,
 };
 
@@ -204,11 +204,11 @@ my_ev_cb(struct os_event *ev)
  */
 
 static void
-gen_task(void *arg)
+temp_meas_task(void *arg)
 {
 	while (1) {
 		os_time_delay(OS_TICKS_PER_SEC/10);
-	    os_eventq_put(os_eventq_dflt_get(), &gen_task_ev);
+	    os_eventq_put(os_eventq_dflt_get(), &temp_meas_task_ev);
 	}
 }
 
@@ -217,8 +217,8 @@ init_tasks(void)
 {
     /* Create a task to generate events to measure temperature every 100ms */
 
-    os_task_init(&gen_task_str, "gen_task", gen_task, NULL, GEN_TASK_PRIO,
-                 OS_WAIT_FOREVER, gen_task_stack, GEN_TASK_STACK_SZ);
+    os_task_init(&temp_meas_task_str, "temp_meas_task", temp_meas_task, NULL, TEMP_MEAS_TASK_PRIO,
+                 OS_WAIT_FOREVER, temp_meas_task_stack, TEMP_MEAS_TASK_STACK_SZ);
 
 }
 
