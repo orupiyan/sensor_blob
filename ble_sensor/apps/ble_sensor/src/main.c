@@ -36,18 +36,21 @@
 /* Global buffer to store temperature blob */
 int16_t g_temp[10]={0};
 
-#define TEMP_MEAS_TASK_PRIO       3     
+#define TEMP_MEAS_TASK_PRIO       1     
 #define TEMP_MEAS_TASK_STACK_SZ   512
 
 static os_stack_t temp_meas_task_stack[TEMP_MEAS_TASK_STACK_SZ];
 static struct os_task temp_meas_task_str;
 
+/* A seperate event queue to handle temp measurement events */
+static struct os_eventq temp_meas_task_eventq;
+
 /* Callback function for application task event */
-static void my_ev_cb(struct os_event *);
+static void temp_meas_task_cb(struct os_event *);
 
 /* Initialize the event with the callback function */
 static struct os_event temp_meas_task_ev = {
-    .ev_cb = my_ev_cb,
+    .ev_cb = temp_meas_task_cb,
 };
 
 /* Log data */
@@ -179,7 +182,7 @@ on_sync(void)
 static void 
 append_temp_measurement(int16_t temp)
 {
-	int i = 9;
+    int i = 9;
     for (i = 9; i > 0; i--) {
         g_temp[i] = g_temp[i - 1];
     }
@@ -189,9 +192,9 @@ append_temp_measurement(int16_t temp)
 }
 
 static void 
-my_ev_cb(struct os_event *ev)
+temp_meas_task_cb(struct os_event *ev)
 {
-	int16_t temp = 0;
+    int16_t temp = 0;
     temp = get_temp_measurement();
     LOG(DEBUG, "Temp Measurement @ every 100ms=%i\n", temp);
     append_temp_measurement(temp);
@@ -200,23 +203,25 @@ my_ev_cb(struct os_event *ev)
 
 /* 
  * Task handler to generate an event to measure temperature every 100ms. 
- * The event is added to the default event queue. 
+ * The event is added to a seperate event queue and then executed.
  */
 
 static void
 temp_meas_task(void *arg)
 {
-	while (1) {
-		os_time_delay(OS_TICKS_PER_SEC/10);
-	    os_eventq_put(os_eventq_dflt_get(), &temp_meas_task_ev);
-	}
+    while (1) {
+        os_time_delay(OS_TICKS_PER_SEC/10);
+        os_eventq_put(&temp_meas_task_eventq, &temp_meas_task_ev);
+        os_eventq_run(&temp_meas_task_eventq);
+    }
 }
 
 static void
 init_tasks(void)
 {
+    /*Initialize an event queue*/
+    os_eventq_init(&temp_meas_task_eventq);
     /* Create a task to generate events to measure temperature every 100ms */
-
     os_task_init(&temp_meas_task_str, "temp_meas_task", temp_meas_task, NULL, TEMP_MEAS_TASK_PRIO,
                  OS_WAIT_FOREVER, temp_meas_task_stack, TEMP_MEAS_TASK_STACK_SZ);
 
@@ -256,7 +261,7 @@ main(void)
     rc = ble_svc_gap_device_name_set(device_name);
     assert(rc == 0);
 
-    //get_temp_measurement_async();
+    LOG(DEBUG, "Going to main task\n\n\n\n\n");
 
     /* As the last thing, process events from default event queue */
     while (1) {
